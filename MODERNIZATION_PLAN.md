@@ -231,9 +231,11 @@ corpse.
 - CI runner JDK = **8 for now** (matches the frozen baseline); flips to 21 in Phase 3.
 
 #### Verification & Exit Criteria
-- [ ] GitHub Actions run is green on a PR.
-- [ ] `.travis.yml` removed.
-- [ ] **User action recorded (not agent-doable):** enable branch protection / required status check on `master` (§9).
+- [x] GitHub Actions run is green on a PR. *(PR #2: `build-java-8` passed 2m39s; overall run conclusion `success`. JDK 21 lane `continue-on-error` failed as designed without reddening the run.)*
+- [x] `.travis.yml` removed.
+- [x] JDK 21 matrix lane present and allowed-to-fail (previews Phase 3).
+- [x] README CI references updated (Travis/Codecov badges → Actions badge; image push deferred to Phase 6).
+- [ ] **User action recorded (not agent-doable):** enable branch protection / required status check on `main`, **requiring only `build-java-8`** (NOT the experimental JDK 21 leg) (§9).
 
 ---
 
@@ -366,7 +368,7 @@ corpse.
 | Phase | Status |
 |-------|--------|
 | 1 — Green baseline & safety net | 🔄 in progress (green baseline achieved on PR; seam snapshots → Phase 1b) |
-| 2 — CI Milestone (GitHub Actions) | ⬜ not started |
+| 2 — CI Milestone (GitHub Actions) | ✅ complete (PR #2: `build-java-8` green; Travis retired; JDK 21 preview lane allowed-to-fail). Pending manual branch protection on `main` (§9). |
 | 3 — Platform upgrade (Java 21 / Boot 3.3) | ⬜ not started |
 | 4 — Edge rewrite + observability | ⬜ not started |
 | 5 — Security rewrite (Authorization Server + JWT) | ⬜ not started |
@@ -397,8 +399,11 @@ Markers: ⬜ not started · 🔄 in progress · ✅ complete · ⏭️ descoped 
 ## 9. Open questions / decisions needed from stakeholders
 
 1. **[USER ACTION — not agent-doable] Enable branch protection / required status
-   check** on `master` after Phase 2 so GitHub Actions actually *blocks* merges
-   (GitHub → Settings → Branches). Until done, CI runs but does not gate.
+   check** on `main` now that Phase 2 has landed CI, so GitHub Actions actually
+   *blocks* merges (GitHub → Settings → Branches). **Require only the
+   `build-java-8` check — do NOT require the experimental `build-java-21` lane**
+   (it is intentionally allowed-to-fail until Phase 3). Until done, CI runs but
+   does not gate.
 2. **[DECISION NEEDED] UI auth flow.** Plan assumes authorization_code + PKCE via
    a BFF at the gateway (password grant is removed). Confirm, or opt for an
    external IdP (Keycloak/Auth0).
