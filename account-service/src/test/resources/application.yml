@@ -2,4 +2,3 @@ spring:
   data:
     mongodb:
       database: piggymetrics
-      port: 0

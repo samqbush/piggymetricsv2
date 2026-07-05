@@ -205,10 +205,10 @@ corpse.
 - Golden-master oracle = the **published `sqshq/piggymetrics-*` Docker images** run via compose (a real running oracle is available).
 
 #### Verification & Exit Criteria (Definition of Done)
-- [ ] `mvn test` is **green** for all modules on JDK 8.
-- [ ] Seam snapshots for every README endpoint captured and committed.
-- [ ] Mutation test (1.4) demonstrably turned the suite red, then reverted — net proven.
-- [ ] No production code behavior changed — assert "test-harness only."
+- [x] `mvn test` is **green** for all modules on JDK 8. *(Reactor: 10/10 SUCCESS; data-service suites 14/9/15/18 pass, 1 external test skipped.)*
+- [ ] Seam snapshots for every README endpoint captured and committed. *(Deferred to Phase 1b — non-blocking per §3 residual-risk refinement; oracle bring-up is flaky/heavy.)*
+- [x] Mutation test (1.4) demonstrably turned the suite red, then reverted — net proven. *(Mutated `AccountServiceImpl` currency → `shouldCreateAccountWithGivenUser` failed `expected:<USD> but was:<EUR>`, then reverted clean.)*
+- [x] No production code behavior changed — assert "test-harness only." *(`git diff` of `*/src/main/*` is empty; only poms + test sources changed.)*
 
 ---
 
@@ -365,7 +365,7 @@ corpse.
 ### Phase status
 | Phase | Status |
 |-------|--------|
-| 1 — Green baseline & safety net | ⬜ not started |
+| 1 — Green baseline & safety net | 🔄 in progress (green baseline achieved on PR; seam snapshots → Phase 1b) |
 | 2 — CI Milestone (GitHub Actions) | ⬜ not started |
 | 3 — Platform upgrade (Java 21 / Boot 3.3) | ⬜ not started |
 | 4 — Edge rewrite + observability | ⬜ not started |
