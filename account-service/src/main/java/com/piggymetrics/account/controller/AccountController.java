@@ -4,10 +4,9 @@ import com.piggymetrics.account.domain.Account;
 import com.piggymetrics.account.domain.User;
 import com.piggymetrics.account.service.AccountService;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
-import javax.validation.Valid;
+import jakarta.validation.Valid;
 import java.security.Principal;
 
 @RestController
@@ -16,7 +15,8 @@ public class AccountController {
 	@Autowired
 	private AccountService accountService;
 
-	@PreAuthorize("#oauth2.hasScope('server') or #name.equals('demo')")
+	// TODO(Phase 5): @PreAuthorize("#oauth2.hasScope('server') or #name.equals('demo')")
+	// removed with the OAuth2 stack; method security is restored in the Phase 5 rewrite.
 	@RequestMapping(path = "/{name}", method = RequestMethod.GET)
 	public Account getAccountByName(@PathVariable String name) {
 		return accountService.findByName(name);

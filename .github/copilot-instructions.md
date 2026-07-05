@@ -20,10 +20,15 @@ phase at a time; do not advance until the current phase's exit criteria are met.
 
 ## Commands
 
-> Maven multi-module, **no wrapper committed**. The build **requires JDK 8** until
-> Phase 3 (Spring Boot 2.0.3 does not run on JDK 17+). Set `JAVA_HOME` to a JDK 8
-> before building (e.g. `export JAVA_HOME=~/.sdkman/candidates/java/8.0.432-zulu`).
-> From Phase 3 onward, JDK 21.
+> Maven multi-module, **no wrapper committed**. From **Phase 3 onward the build
+> requires JDK 21** (Spring Boot 3.3 needs 17+). Set `JAVA_HOME` to a JDK 21 before
+> building (e.g. `export JAVA_HOME=~/.sdkman/candidates/java/21.0.2-open`). The
+> in-scope reactor is 5 modules (config, registry, account/statistics/notification-service);
+> **gateway, monitoring, turbine-stream-service and auth-service are quarantined**
+> (excluded from the root `<modules>`) on the legacy Boot 2 / Netflix stack until
+> Phases 4 & 5. To run the Testcontainers tests locally on Docker Desktop 29+
+> (Apple Silicon): `export DOCKER_HOST=unix://$HOME/.docker/run/docker.sock` and
+> `mvn verify -Dapi.version=1.44`; GitHub-hosted CI needs neither.
 
 | Action | Command |
 |--------|---------|
@@ -39,8 +44,9 @@ phase at a time; do not advance until the current phase's exit criteria are met.
 | Contract / characterization | seam snapshots captured in Phase 1 vs. running `sqshq/piggymetrics-*` oracle |
 
 CI (`.github/workflows/ci.yml`) runs `mvn -B verify` (with Testcontainers +
-JaCoCo) on every push and PR — **on JDK 8 through Phase 2, flipping to JDK 21 in
-Phase 3.** CI is stood up in **Phase 2** (the CI Milestone). **Enforcement is a
+JaCoCo) on every push and PR — **on JDK 21 from Phase 3** (the single
+`build-java-21` lane; the JDK 8 lane was dropped). CI is stood up in **Phase 2**
+(the CI Milestone). **Enforcement is a
 separate manual step:** until a human turns this workflow into a **required status
 check / branch-protection rule** (GitHub → Settings → Branches), CI *runs* on PRs
 but does **not** *block* merges.

@@ -40,7 +40,7 @@ public class StatisticsServiceImpl implements StatisticsService {
 	 */
 	@Override
 	public List<DataPoint> findByAccountName(String accountName) {
-		Assert.hasLength(accountName);
+		Assert.hasLength(accountName, "account name must not be empty");
 		return repository.findByIdAccount(accountName);
 	}
 
