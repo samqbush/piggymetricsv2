@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: build-java-${{ matrix.java }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    continue-on-error: ${{ matrix.experimental }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - java: '8'
+            experimental: false
+          # JDK 21 lane previews the Phase 3 platform upgrade; allowed to fail
+          # (the app does not yet run on JDK 21 / Spring Boot 3).
+          - java: '21'
+            experimental: true
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK ${{ matrix.java }}
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.java }}
+          cache: maven
+
+      # GitHub-hosted Ubuntu runners ship with Docker, which Testcontainers needs.
+      - name: Build and test
+        run: mvn -B verify
+
+      - name: Upload JaCoCo coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jacoco-java-${{ matrix.java }}
+          path: '**/target/site/jacoco'
+          if-no-files-found: warn
