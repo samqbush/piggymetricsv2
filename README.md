@@ -220,7 +220,7 @@ Here is a simple Continuous Delivery workflow, implemented in this project:
 
 <img width="880" src="https://cloud.githubusercontent.com/assets/6069066/14159789/0dd7a7ce-f6e9-11e5-9fbb-a7fe0f4431e3.png">
 
-In this [configuration](https://github.com/samqbush/piggymetricsv2/blob/master/.github/workflows/ci.yml), GitHub Actions builds and tests every microservice on each push and pull request, publishing the JaCoCo coverage report as a workflow artifact. Automated Docker image builds/pushes to Docker Hub are being reintroduced as part of the modernization effort (see `MODERNIZATION_PLAN.md`, Phase 6).
+In this [configuration](.github/workflows/ci.yml), GitHub Actions builds and tests every microservice on each push and pull request, publishing the JaCoCo coverage report as a workflow artifact. Automated Docker image builds/pushes to Docker Hub are being reintroduced as part of the modernization effort (see `MODERNIZATION_PLAN.md`, Phase 6).
 
 ## Let's try it out
 
