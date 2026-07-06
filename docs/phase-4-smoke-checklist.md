@@ -52,7 +52,7 @@ Zuul's cleared `sensitiveHeaders`).
 
 | # | Check | Expected |
 |---|-------|----------|
-| 7 | `curl -s http://localhost:6000/accounts/actuator/prometheus \| head` | Prometheus exposition text (metrics) |
+| 7 | `curl -s http://localhost:6000/accounts/actuator/prometheus` | Prometheus exposition text (metrics) |
 | 8 | http://localhost:9090/targets | All targets (account/statistics/notification/gateway) **UP** |
 | 9 | `curl -s 'http://localhost:9090/api/v1/query?query=jvm_memory_used_bytes'` | Non-empty result with an `application` label |
 | 10 | http://localhost:3000 (admin/admin) → dashboard **"PiggyMetrics — Resilience4j & JVM"** | Panels render; JVM/HTTP panels show data |
