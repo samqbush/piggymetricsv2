@@ -12,6 +12,25 @@ backup:
     attachment: backup.json
 
 spring:
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          # Unreachable placeholder: NimbusJwtDecoder fetches keys lazily, so the
+          # context loads without a running auth-service. Security integration
+          # tests supply their own decoder/JWTs.
+          jwk-set-uri: http://localhost:9999/uaa/oauth2/jwks
+      client:
+        registration:
+          notification-service:
+            provider: uaa
+            client-id: notification-service
+            client-secret: test-secret
+            authorization-grant-type: client_credentials
+            scope: server
+        provider:
+          uaa:
+            token-uri: http://localhost:9999/uaa/oauth2/token
   data:
     mongodb:
       database: piggymetrics

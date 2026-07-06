@@ -1,20 +1,19 @@
 package com.piggymetrics.statistics.repository.converter;
 
-import com.mongodb.BasicDBObject;
-import com.mongodb.DBObject;
 import com.piggymetrics.statistics.domain.timeseries.DataPointId;
+import org.bson.Document;
 import org.springframework.core.convert.converter.Converter;
+import org.springframework.data.convert.WritingConverter;
 import org.springframework.stereotype.Component;
 
 @Component
-public class DataPointIdWriterConverter implements Converter<DataPointId, DBObject> {
-
-	private static final int FIELDS = 2;
+@WritingConverter
+public class DataPointIdWriterConverter implements Converter<DataPointId, Document> {
 
 	@Override
-	public DBObject convert(DataPointId id) {
+	public Document convert(DataPointId id) {
 
-		DBObject object = new BasicDBObject(FIELDS);
+		Document object = new Document();
 
 		object.put("date", id.getDate());
 		object.put("account", id.getAccount());

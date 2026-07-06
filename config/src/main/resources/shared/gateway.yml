@@ -1,45 +1,60 @@
-hystrix:
-  command:
-    default:
-      execution:
-        isolation:
-          thread:
-            timeoutInMilliseconds: 20000
-
-ribbon:
-  ReadTimeout: 20000
-  ConnectTimeout: 20000
-
-zuul:
-  ignoredServices: '*'
-  host:
-    connect-timeout-millis: 20000
-    socket-timeout-millis: 20000
-
-  routes:
-    auth-service:
-        path: /uaa/**
-        url: http://auth-service:5000
-        stripPrefix: false
-        sensitiveHeaders:
-
-    account-service:
-        path: /accounts/**
-        serviceId: account-service
-        stripPrefix: false
-        sensitiveHeaders:
-
-    statistics-service:
-        path: /statistics/**
-        serviceId: statistics-service
-        stripPrefix: false
-        sensitiveHeaders:
-
-    notification-service:
-        path: /notifications/**
-        serviceId: notification-service
-        stripPrefix: false
-        sensitiveHeaders:
+# Spring Cloud Gateway edge (replaces Netflix Zuul 1, removed in Spring Cloud 2020+).
+# Route parity with the legacy Zuul config: every route used stripPrefix: false,
+# so the full path is forwarded downstream unchanged (no StripPrefix filter here).
+#
+# Phase 5: the gateway is a Backend-for-Frontend (BFF). It logs the browser in via
+# authorization_code + PKCE and relays the session's access-token JWT to downstream
+# services with the TokenRelay default filter.
+spring:
+  cloud:
+    gateway:
+      # Relay the BFF session's OAuth2 access token as a Bearer header downstream.
+      default-filters:
+        - TokenRelay=
+      httpclient:
+        connect-timeout: 20000
+        response-timeout: 20s
+      routes:
+        # auth-service is targeted by a direct URL (not lb://) — parity with the
+        # legacy Zuul `url:` route. Serves the OAuth2/OIDC protocol endpoints.
+        - id: auth-service
+          uri: http://auth-service:5000
+          predicates:
+            - Path=/uaa/**
+        - id: account-service
+          uri: lb://account-service
+          predicates:
+            - Path=/accounts/**
+        - id: statistics-service
+          uri: lb://statistics-service
+          predicates:
+            - Path=/statistics/**
+        - id: notification-service
+          uri: lb://notification-service
+          predicates:
+            - Path=/notifications/**
+  security:
+    oauth2:
+      client:
+        registration:
+          piggymetrics:
+            provider: uaa
+            client-id: browser
+            client-secret: ${BROWSER_CLIENT_SECRET:browser-secret}
+            authorization-grant-type: authorization_code
+            redirect-uri: "{baseUrl}/login/oauth2/code/piggymetrics"
+            scope: openid, profile, ui
+        provider:
+          uaa:
+            # Browser-facing authorize endpoint (reached through the gateway);
+            # back-channel token/jwks/userinfo use the internal service host.
+            # issuer-uri is intentionally omitted to avoid startup OIDC discovery
+            # against a host that may not be reachable yet.
+            authorization-uri: ${AUTH_AUTHORIZATION_URI:http://localhost:4000/uaa/oauth2/authorize}
+            token-uri: ${AUTH_TOKEN_URI:http://auth-service:5000/uaa/oauth2/token}
+            jwk-set-uri: ${AUTH_JWK_SET_URI:http://auth-service:5000/uaa/oauth2/jwks}
+            user-info-uri: ${AUTH_USERINFO_URI:http://auth-service:5000/uaa/userinfo}
+            user-name-attribute: sub
 
 server:
   port: 4000

@@ -2,13 +2,32 @@ logging:
   level:
     org.springframework.security: INFO
 
-hystrix:
-  command:
-    default:
-      execution:
-        isolation:
-          thread:
-            timeoutInMilliseconds: 10000
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,refresh
+  metrics:
+    tags:
+      application: ${spring.application.name}
+
+# Resilience4j (via Spring Cloud CircuitBreaker) replaces Netflix Hystrix.
+# Enabling this makes OpenFeign route calls through the circuit breaker so the
+# existing @FeignClient(fallback=...) classes are invoked on failure.
+spring:
+  cloud:
+    openfeign:
+      circuitbreaker:
+        enabled: true
+  rabbitmq:
+    host: rabbitmq
+
+# Preserve the old Hystrix 10s command timeout for the slow external calls.
+resilience4j:
+  timelimiter:
+    configs:
+      default:
+        timeoutDuration: 10s
 
 eureka:
   instance:
@@ -16,12 +35,3 @@ eureka:
   client:
     serviceUrl:
       defaultZone: http://registry:8761/eureka/
-
-security:
-  oauth2:
-    resource:
-      user-info-uri: http://auth-service:5000/uaa/users/current
-
-spring:
-  rabbitmq:
-    host: rabbitmq
