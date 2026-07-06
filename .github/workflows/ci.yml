@@ -42,3 +42,40 @@ jobs:
           name: jacoco-java-21
           path: '**/target/site/jacoco'
           if-no-files-found: warn
+
+  docker-images:
+    name: build-docker-images
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      # Produce the target/*.jar artifacts the service Dockerfiles ADD. Tests
+      # already ran in the `build` job, so skip them here.
+      - name: Package jars (skip tests)
+        run: mvn -B -DskipTests package
+
+      # Build-only image validation on the JDK 21 / mongo:7 bases: this catches
+      # broken Dockerfiles, wrong build contexts, missing jars and bad base
+      # images. It does NOT run the containers, so MongoDB init/auth is covered
+      # by the local docker-compose smoke test, not by CI. No images are pushed.
+      - name: Build service images (no push)
+        run: |
+          set -euxo pipefail
+          for module in config registry account-service statistics-service \
+                        notification-service gateway auth-service; do
+            docker build -t "piggymetrics-$module:ci" "./$module"
+          done
+
+      - name: Build mongodb image (no push)
+        run: docker build -t piggymetrics-mongodb:ci ./mongodb

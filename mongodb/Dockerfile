@@ -1,15 +1,10 @@
-FROM mongo:3
-MAINTAINER Alexander Lukyanchikov <sqshq@sqshq.com>
+FROM mongo:7.0
+LABEL org.opencontainers.image.authors="Alexander Lukyanchikov <sqshq@sqshq.com>"
 
-ADD init.sh /init.sh
-ADD ./dump /
+# Native MongoDB initialization (mongo:7): the official entrypoint creates the
+# root user from MONGO_INITDB_ROOT_* and then runs every script in
+# /docker-entrypoint-initdb.d against MONGO_INITDB_DATABASE on a first-run
+# (empty) data volume, before enabling --auth for the real server.
+COPY docker-entrypoint-initdb.d/ /docker-entrypoint-initdb.d/
 
-RUN \
- chmod +x /init.sh && \
- apt-get update && apt-get dist-upgrade -y --force-yes && apt-get install dos2unix && \
- apt-get install psmisc -y -q && \
- apt-get autoremove -y && apt-get clean && \
- rm -rf /var/cache/* && rm -rf /var/lib/apt/lists/* && \
- dos2unix -n /init.sh /initx.sh && chmod +x /initx.sh
-
-ENTRYPOINT ["/initx.sh"]
+EXPOSE 27017

@@ -220,7 +220,7 @@ Here is a simple Continuous Delivery workflow, implemented in this project:
 
 <img width="880" src="https://cloud.githubusercontent.com/assets/6069066/14159789/0dd7a7ce-f6e9-11e5-9fbb-a7fe0f4431e3.png">
 
-In this [configuration](.github/workflows/ci.yml), GitHub Actions builds and tests every microservice on each push and pull request, publishing the JaCoCo coverage report as a workflow artifact. Automated Docker image builds/pushes to Docker Hub are being reintroduced as part of the modernization effort (see `MODERNIZATION_PLAN.md`, Phase 6).
+In this [configuration](.github/workflows/ci.yml), GitHub Actions builds and tests every microservice on JDK 21 on each push and pull request, publishing the JaCoCo coverage report as a workflow artifact. A second `build-docker-images` job then validates that every service and MongoDB image builds on the modern bases (`eclipse-temurin:21-jre` / `mongo:7`). Images are **not** pushed to a registry yet, so `docker-compose.yml` (production mode) still references the legacy published `sqshq/piggymetrics-*` images; the fully modernized runtime is built locally via the development-mode overlay (both compose files).
 
 ## Let's try it out
 
@@ -232,13 +232,13 @@ Note that starting 8 Spring Boot applications, 4 MongoDB instances and a RabbitM
 - Build the project: `mvn package [-DskipTests]`
 
 #### Production mode
-In this mode, all latest images will be pulled from Docker Hub.
+In this mode, all images referenced by `docker-compose.yml` are pulled from Docker Hub. Note these are still the **legacy** `sqshq/piggymetrics-*` images (the modernized images are not yet published); use development mode below to run the fully modernized JDK 21 / MongoDB 7 stack.
 Just copy `docker-compose.yml` and hit `docker-compose up`
 
 #### Development mode
-If you'd like to build images yourself, you have to clone the repository and build artifacts using maven. After that, run `docker-compose -f docker-compose.yml -f docker-compose.dev.yml up`
+If you'd like to build the modernized images yourself, clone the repository and build artifacts using maven. After that, run `docker-compose -f docker-compose.yml -f docker-compose.dev.yml up --build`
 
-`docker-compose.dev.yml` inherits `docker-compose.yml` with additional possibility to build images locally and expose all containers ports for convenient development.
+`docker-compose.dev.yml` inherits `docker-compose.yml` with additional possibility to build images locally (JDK 21 services + the `mongo:7` image) and expose all containers ports for convenient development.
 
 If you'd like to start applications in Intellij Idea you need to either use [EnvFile plugin](https://plugins.jetbrains.com/plugin/7861-envfile) or manually export environment variables listed in `.env` file (make sure they were exported: `printenv`)
 
