@@ -13,7 +13,7 @@ import org.springframework.security.oauth2.client.registration.ClientRegistratio
 
 /**
  * Restores service-to-service authentication for outbound Feign calls
- * (notification account &rarr; auth {@code createUser}, account &rarr; statisticsrarr; account) using the
+ * (notification &rarr; account {@code getAccount}) using the
  * {@code client_credentials} grant. Replaces the removed
  * {@code OAuth2FeignRequestInterceptor} / {@code OAuth2RestTemplate}.
  *
@@ -47,10 +47,14 @@ public class FeignOAuth2Config {
 					.principal(CLIENT_REGISTRATION_ID)
 					.build();
 			OAuth2AuthorizedClient client = manager.authorize(request);
-			if (client != null) {
-				template.header("Authorization",
-						"Bearer " + client.getAccessToken().getTokenValue());
+			if (client == null) {
+				throw new IllegalStateException(
+						"Unable to obtain client_credentials access token for '"
+								+ CLIENT_REGISTRATION_ID + "'; check the auth-service availability and "
+								+ "client-secret configuration.");
 			}
+			template.header("Authorization",
+					"Bearer " + client.getAccessToken().getTokenValue());
 		};
 	}
 }

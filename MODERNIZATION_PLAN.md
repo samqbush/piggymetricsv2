@@ -70,6 +70,7 @@ step a human must perform** (see §9). Until then CI *runs* on PRs but does not
 | Auth (oauth2→Authorization Server) | L4 | token *format* changes (opaque check-token → JWT); every resource server must switch validation in lockstep | ✅ Phase 5 (single coordinated phase: SAS issues RSA JWTs, all 3 resource servers validate via internal `jwk-set-uri`, service-to-service via `client_credentials`; contract tests + `mvn verify` 7/7 green) |
 | Removed monitoring/turbine | n/a | loss of Hystrix dashboard | ✅ Phase 4 (Resilience4j + Micrometer/Prometheus/Grafana replace it) |
 | Testcontainers in CI | L4 | requires Docker-in-CI (available on GitHub-hosted runners) | Phase 1 |
+| Ephemeral JWKS signing key (auth-service) | n/a | RSA key is generated in-memory on each auth-service startup; a restart re-issues keys and invalidates all live JWTs (gateway sessions + in-flight service-to-service tokens). Tolerable for single-instance demo topology. | ⚠️ Open — production hardening: externalize key material (keystore/PEM/env) + JWKS rotation (deferred, not implemented in Phase 5) |
 
 ## 4. Target architecture
 

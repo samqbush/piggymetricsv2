@@ -15,8 +15,6 @@ public class AccountController {
 	@Autowired
 	private AccountService accountService;
 
-	// TODO(Phase 5): @PreAuthorize("#oauth2.hasScope('server') or #name.equals('demo')")
-	// removed with the OAuth2 stack; method security is restored in the Phase 5 rewrite.
 	@RequestMapping(path = "/{name}", method = RequestMethod.GET)
 	public Account getAccountByName(@PathVariable String name) {
 		return accountService.findByName(name);

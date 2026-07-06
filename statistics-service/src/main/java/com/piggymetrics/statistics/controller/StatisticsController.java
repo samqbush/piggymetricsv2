@@ -21,14 +21,11 @@ public class StatisticsController {
 		return statisticsService.findByAccountName(principal.getName());
 	}
 
-	// TODO(Phase 5): @PreAuthorize("#oauth2.hasScope('server') or #accountName.equals('demo')")
-	// removed with the OAuth2 stack; method security is restored in the Phase 5 rewrite.
 	@RequestMapping(value = "/{accountName}", method = RequestMethod.GET)
 	public List<DataPoint> getStatisticsByAccountName(@PathVariable String accountName) {
 		return statisticsService.findByAccountName(accountName);
 	}
 
-	// TODO(Phase 5): @PreAuthorize("#oauth2.hasScope('server')") removed with the OAuth2 stack.
 	@RequestMapping(value = "/{accountName}", method = RequestMethod.PUT)
 	public void saveAccountStatistics(@PathVariable String accountName, @Valid @RequestBody Account account) {
 		statisticsService.save(accountName, account);
