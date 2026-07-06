@@ -1,6 +1,4 @@
 [![CI](https://github.com/samqbush/piggymetricsv2/actions/workflows/ci.yml/badge.svg)](https://github.com/samqbush/piggymetricsv2/actions/workflows/ci.yml)
-[![GitHub license](https://img.shields.io/github/license/mashape/apistatus.svg)](https://github.com/sqshq/PiggyMetrics/blob/master/LICENCE)
-[![Join the chat at https://gitter.im/sqshq/PiggyMetrics](https://badges.gitter.im/sqshq/PiggyMetrics.svg)](https://gitter.im/sqshq/PiggyMetrics?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
 # Piggy Metrics
 
@@ -10,6 +8,42 @@ Piggy Metrics is a simple financial advisor app built to demonstrate the [Micros
 
 ![](https://cloud.githubusercontent.com/assets/6069066/13864234/442d6faa-ecb9-11e5-9929-34a9539acde0.png)
 ![Piggy Metrics](https://cloud.githubusercontent.com/assets/6069066/13830155/572e7552-ebe4-11e5-918f-637a49dff9a2.gif)
+
+## Modernization at a glance
+
+This fork has been **fully modernized** off the original EOL stack (Java 8, Spring Boot
+2.0.3, Spring Cloud Finchley, Netflix Zuul/Hystrix/Ribbon/Turbine, `spring-security-oauth2`).
+The microservice decomposition is preserved — that is the demo's whole point — but every
+EOL framework and Netflix component has been upgraded or swapped for its modern equivalent.
+See [`MODERNIZATION_PLAN.md`](MODERNIZATION_PLAN.md) for the full phased roadmap and
+[`ARCHITECTURE.md`](ARCHITECTURE.md) for the audited before-state.
+
+| Concern | Before (legacy) | After (this fork) |
+|---------|-----------------|-------------------|
+| Runtime | Java 8 | **Java 21 (LTS)** |
+| Platform | Spring Boot 2.0.3 | **Spring Boot 3.3.x** (Jakarta namespace) |
+| Spring Cloud | Finchley | **2023.0.x (Leyton)** |
+| API Gateway / edge | Netflix Zuul 1 | **Spring Cloud Gateway** (+ BFF: authorization_code + PKCE, TokenRelay) |
+| Circuit breaker | Hystrix | **Resilience4j** (Spring Cloud CircuitBreaker) |
+| Load balancing | Ribbon | **Spring Cloud LoadBalancer** |
+| Metrics / dashboard | Hystrix Dashboard + Turbine | **Micrometer + Prometheus + Grafana** (Actuator) |
+| Distributed tracing | Spring Cloud Sleuth | **Micrometer Tracing** |
+| Auth server | `spring-security-oauth2` `@EnableAuthorizationServer` | **Spring Authorization Server** (RSA-signed JWT) |
+| Resource servers | `@EnableResourceServer` + remote check-token | **OAuth2 Resource Server (JWT)**, local validation |
+| Service-to-service auth | `OAuth2FeignRequestInterceptor` / `OAuth2RestTemplate` | **OAuth2 Client `client_credentials`** |
+| Token model | opaque `InMemoryTokenStore` | **stateless signed JWT** |
+| Password / secret encoding | `NoOpPasswordEncoder` / `{noop}` | **BCrypt** |
+| Service discovery | Netflix Eureka | **Eureka** (kept, upgraded in place) |
+| Config | Cloud Config (native) | **Cloud Config (native)** (kept, upgraded in place) |
+| Messaging | RabbitMQ (Bus + Hystrix stream) | **RabbitMQ** (Cloud Bus refresh only) |
+| Test database | flapdoodle embedded mongo | **Testcontainers MongoDB** |
+| MongoDB image | `mongo:3` | **`mongo:7`** |
+| Container base image | `java:8-jre` | **`eclipse-temurin:21-jre`** |
+| CI | Travis CI | **GitHub Actions** (`build-java-21`) |
+
+> The in-scope reactor is now **7 modules** (config, registry, account/statistics/notification-service,
+> gateway, auth-service). The Hystrix-only `monitoring` and `turbine-stream-service`
+> modules were **removed** — observability moved to Micrometer/Prometheus/Grafana.
 
 ## Functional services
 
@@ -57,9 +91,9 @@ PUT	| /notifications/settings/current	| Save current account notification settin
 [Spring cloud](https://spring.io/projects/spring-cloud) provides powerful tools for developers to quickly implement common distributed systems patterns -
 <img width="880" alt="Infrastructure services" src="https://cloud.githubusercontent.com/assets/6069066/13906840/365c0d94-eefa-11e5-90ad-9d74804ca412.png">
 ### Config service
-[Spring Cloud Config](http://cloud.spring.io/spring-cloud-config/spring-cloud-config.html) is horizontally scalable centralized configuration service for the distributed systems. It uses a pluggable repository layer that currently supports local storage, Git, and Subversion.
+[Spring Cloud Config](https://docs.spring.io/spring-cloud-config/reference/) is a horizontally scalable centralized configuration service for distributed systems. It uses a pluggable repository layer that currently supports local storage, Git, and Subversion.
 
-In this project, we are going to use `native profile`, which simply loads config files from the local classpath. You can see `shared` directory in [Config service resources](https://github.com/sqshq/PiggyMetrics/tree/master/config/src/main/resources). Now, when Notification-service requests its configuration, Config service responses with `shared/notification-service.yml` and `shared/application.yml` (which is shared between all client applications).
+In this project, we use the `native profile`, which simply loads config files from the local classpath. You can see the `shared` directory in [Config service resources](config/src/main/resources). Now, when the Notification service requests its configuration, the Config service responds with `shared/notification-service.yml` and `shared/application.yml` (which is shared between all client applications).
 
 ##### Client side usage
 Just build Spring Boot application with `spring-cloud-starter-config` dependency, autoconfiguration will do the rest.
@@ -76,7 +110,7 @@ spring:
 ```
 
 ##### With Spring Cloud Config, you can change application config dynamically. 
-For example, [EmailService bean](https://github.com/sqshq/PiggyMetrics/blob/master/notification-service/src/main/java/com/piggymetrics/notification/service/EmailServiceImpl.java) is annotated with `@RefreshScope`. That means you can change e-mail text and subject without rebuild and restart the Notification service.
+For example, the [EmailService bean](notification-service/src/main/java/com/piggymetrics/notification/service/EmailServiceImpl.java) is annotated with `@RefreshScope`. That means you can change the e-mail text and subject without rebuilding and restarting the Notification service.
 
 First, change required properties in Config server. Then make a refresh call to the Notification service:
 `curl -H "Authorization: Bearer #token#" -XPOST http://127.0.0.1:8000/notifications/refresh`
@@ -88,40 +122,56 @@ You could also use Repository [webhooks to automate this process](http://cloud.s
 - `fail-fast` property means that Spring Boot application will fail startup immediately, if it cannot connect to the Config Service.
 
 ### Auth service
-Authorization responsibilities are extracted to a separate server, which grants [OAuth2 tokens](https://tools.ietf.org/html/rfc6749) for the backend resource services. Auth Server is used for user authorization as well as for secure machine-to-machine communication inside the perimeter.
+Authorization responsibilities are extracted into a separate server, which issues [OAuth2](https://tools.ietf.org/html/rfc6749) **JWT** access tokens for the backend resource services. The Auth server is used for user authorization as well as for secure machine-to-machine communication inside the perimeter.
 
-In this project, I use [`Password credentials`](https://tools.ietf.org/html/rfc6749#section-4.3) grant type for users authorization (since it's used only by the UI) and [`Client Credentials`](https://tools.ietf.org/html/rfc6749#section-4.4) grant for service-to-service communciation.
+> **Before → after:** the legacy auth-service was built on the removed
+> `spring-security-oauth2` library (`@EnableAuthorizationServer`, opaque
+> `InMemoryTokenStore`, `NoOpPasswordEncoder`, the deprecated **password** grant,
+> and a per-request remote check-token round trip). It has been **rewritten on
+> [Spring Authorization Server](https://spring.io/projects/spring-authorization-server)**,
+> issuing **RSA-signed JWTs**. Client secrets and user passwords are now **BCrypt**
+> encoded.
 
-Spring Cloud Security provides convenient annotations and autoconfiguration to make this really easy to implement on both server and client side. You can learn more about that in [documentation](http://cloud.spring.io/spring-cloud-security/spring-cloud-security.html).
+Two flows are used:
 
-On the client side, everything works exactly the same as with traditional session-based authorization. You can retrieve `Principal` object from the request, check user roles using the expression-based access control and `@PreAuthorize` annotation.
+- **User login (browser):** [`authorization_code` + PKCE](https://datatracker.ietf.org/doc/html/rfc7636) via a **Backend-for-Frontend (BFF)** at the gateway. The password grant is gone, so the gateway logs the user in and holds the session; it relays the session's JWT downstream via the `TokenRelay` filter.
+- **Service-to-service:** the [`Client Credentials`](https://tools.ietf.org/html/rfc6749#section-4.4) grant, obtained through Spring's OAuth2 Client and attached to Feign calls inside the perimeter.
 
-Each PiggyMetrics client has a scope: `server` for backend services and `ui` - for the browser. We can use `@PreAuthorize` annotation to protect controllers from  an external access:
+Each resource service is now a stateless **OAuth2 Resource Server** that validates JWTs **locally** against the Auth server's JWK Set (`jwk-set-uri`) — no remote check-token call per request. Each PiggyMetrics token carries scopes: `server` for backend services and `ui` for the browser. We use the `@PreAuthorize` annotation to protect controllers from external access:
 
 ``` java
-@PreAuthorize("#oauth2.hasScope('server')")
-@RequestMapping(value = "accounts/{name}", method = RequestMethod.GET)
+@PreAuthorize("hasAuthority('SCOPE_server')")
+@RequestMapping(value = "/statistics/{name}", method = RequestMethod.GET)
 public List<DataPoint> getStatisticsByAccountName(@PathVariable String name) {
 	return statisticsService.findByAccountName(name);
 }
 ```
 
 ### API Gateway
-API Gateway is a single entry point into the system, used to handle requests and routing them to the appropriate backend service or by [aggregating results from a scatter-gather call](http://techblog.netflix.com/2013/01/optimizing-netflix-api.html). Also, it can be used for authentication, insights, stress and canary testing, service migration, static response handling and active traffic management.
+The API Gateway is a single entry point into the system, used to handle requests and route them to the appropriate backend service or by [aggregating results from a scatter-gather call](http://techblog.netflix.com/2013/01/optimizing-netflix-api.html). It can also be used for authentication, insights, stress and canary testing, service migration, static response handling and active traffic management.
 
-Netflix opensourced [such an edge service](http://techblog.netflix.com/2013/06/announcing-zuul-edge-service-in-cloud.html) and Spring Cloud allows to use it with a single `@EnableZuulProxy` annotation. In this project, we use Zuul to store some static content (the UI application) and to route requests to appropriate the microservices. Here's a simple prefix-based routing configuration for the Notification service:
+> **Before → after:** the legacy edge used **Netflix Zuul 1** (`@EnableZuulProxy`),
+> which is removed from modern Spring Cloud. The edge has been **rewritten on
+> [Spring Cloud Gateway](https://docs.spring.io/spring-cloud-gateway/reference/)**.
+> It also acts as the **BFF** — it logs the browser in (authorization_code + PKCE)
+> and relays the JWT downstream with the `TokenRelay` default filter.
+
+Spring Cloud Gateway routes are declared with `Path` predicates. To preserve parity with the old Zuul config (every route used `stripPrefix: false`), no `StripPrefix` filter is applied, so the full path is forwarded downstream unchanged. Here is the routing for the Notification service:
 
 ```yml
-zuul:
-  routes:
-    notification-service:
-        path: /notifications/**
-        serviceId: notification-service
-        stripPrefix: false
-
+spring:
+  cloud:
+    gateway:
+      default-filters:
+        - TokenRelay=
+      routes:
+        - id: notification-service
+          uri: lb://notification-service
+          predicates:
+            - Path=/notifications/**
 ```
 
-That means all requests starting with `/notifications` will be routed to the Notification service. There is no hardcoded addresses, as you can see. Zuul uses [Service discovery](https://github.com/sqshq/PiggyMetrics/blob/master/README.md#service-discovery) mechanism to locate Notification service instances and also [Circuit Breaker and Load Balancer](https://github.com/sqshq/PiggyMetrics/blob/master/README.md#http-client-load-balancer-and-circuit-breaker), described below.
+That means all requests starting with `/notifications` are routed to the Notification service. There are no hardcoded addresses: `lb://` tells the gateway to resolve the target through [Service discovery](#service-discovery) and balance across instances with [Spring Cloud LoadBalancer](#load-balancer-circuit-breaker-and-http-client), described below.
 
 ### Service Discovery
 
@@ -129,7 +179,7 @@ Service Discovery allows automatic detection of the network locations for all re
 
 The key part of Service discovery is the Registry. In this project, we use Netflix Eureka. Eureka is a good example of the client-side discovery pattern, where client is responsible for looking up the locations of available service instances and load balancing between them.
 
-With Spring Boot, you can easily build Eureka Registry using the `spring-cloud-starter-eureka-server` dependency, `@EnableEurekaServer` annotation and simple configuration properties.
+With Spring Boot, you can easily build a Eureka Registry using the `spring-cloud-starter-netflix-eureka-server` dependency, the `@EnableEurekaServer` annotation and simple configuration properties.
 
 Client support enabled with `@EnableDiscoveryClient` annotation a `bootstrap.yml` with application name:
 ``` yml
@@ -144,47 +194,48 @@ Also, Eureka provides a simple interface where you can track running services an
 
 ### Load balancer, Circuit breaker and Http client
 
-#### Ribbon
-Ribbon is a client side load balancer which gives you a lot of control over the behaviour of HTTP and TCP clients. Compared to a traditional load balancer, there is no need in additional network hop - you can contact desired service directly.
+> **Before → after:** the legacy stack used **Netflix Ribbon** (client-side load
+> balancing), **Hystrix** (circuit breaker) and **Feign** wired to both. Ribbon and
+> Hystrix are EOL and removed from modern Spring Cloud. They have been swapped for
+> **Spring Cloud LoadBalancer** and **Resilience4j**; **OpenFeign** stays.
 
-Out of the box, it natively integrates with Spring Cloud and Service Discovery. [Eureka Client](https://github.com/sqshq/PiggyMetrics#service-discovery) provides a dynamic list of available servers so Ribbon could balance between them.
+#### Spring Cloud LoadBalancer
+Spring Cloud LoadBalancer is the built-in client-side load balancer (Ribbon's replacement). Compared to a traditional load balancer, there is no additional network hop — you contact the desired service directly. It natively integrates with Service Discovery: the [Eureka Client](#service-discovery) provides a dynamic list of available servers so the load balancer can balance between them.
 
-#### Hystrix
-Hystrix is the implementation of [Circuit Breaker Pattern](http://martinfowler.com/bliki/CircuitBreaker.html), which gives us a control over latency and network failures while communicating with other services. The main idea is to stop cascading failures in the distributed environment - that helps to fail fast and recover as soon as possible - important aspects of a fault-tolerant system that can self-heal.
+#### Resilience4j
+[Resilience4j](https://resilience4j.readme.io/) is a lightweight fault-tolerance library that implements the [Circuit Breaker Pattern](http://martinfowler.com/bliki/CircuitBreaker.html) (Hystrix's replacement, integrated via Spring Cloud CircuitBreaker). It gives us control over latency and network failures while communicating with other services. The main idea is to stop cascading failures in a distributed environment — fail fast and recover as soon as possible, important aspects of a fault-tolerant system that can self-heal.
 
-Moreover, Hystrix generates metrics on execution outcomes and latency for each command, that we can use to [monitor system's behavior](https://github.com/sqshq/PiggyMetrics#monitor-dashboard).
+Resilience4j exposes metrics through **Micrometer**, which we scrape with **Prometheus** and visualize in **Grafana** (see [Monitoring](#monitoring)).
 
 #### Feign
-Feign is a declarative Http client which seamlessly integrates with Ribbon and Hystrix. Actually, a single `spring-cloud-starter-feign` dependency and `@EnableFeignClients` annotation gives us a full set of tools, including Load balancer, Circuit Breaker and Http client with reasonable default configuration.
+Feign is a declarative HTTP client which seamlessly integrates with Spring Cloud LoadBalancer and Resilience4j. A single `spring-cloud-starter-openfeign` dependency plus the `@EnableFeignClients` annotation gives us a full set of tools — load balancing, circuit breaking (with `spring.cloud.openfeign.circuitbreaker.enabled`) and an HTTP client — with reasonable defaults.
 
-Here is an example from the Account Service:
+Here is an example from the Account service:
 
 ``` java
-@FeignClient(name = "statistics-service")
+@FeignClient(name = "statistics-service", fallback = StatisticsServiceClientFallback.class)
 public interface StatisticsServiceClient {
 
-	@RequestMapping(method = RequestMethod.PUT, value = "/statistics/{accountName}", consumes = MediaType.APPLICATION_JSON_UTF8_VALUE)
+	@RequestMapping(method = RequestMethod.PUT, value = "/statistics/{accountName}", consumes = MediaType.APPLICATION_JSON_VALUE)
 	void updateStatistics(@PathVariable("accountName") String accountName, Account account);
 
 }
 ```
 
 - Everything you need is just an interface
-- You can share `@RequestMapping` part between Spring MVC controller and Feign methods
-- Above example specifies just a desired service id - `statistics-service`, thanks to auto-discovery through Eureka
+- You can share the `@RequestMapping` part between the Spring MVC controller and Feign methods
+- The example above specifies just a desired service id — `statistics-service` — thanks to auto-discovery through Eureka
+- The `fallback` provides a Resilience4j circuit-breaker fallback when the target is unavailable
 
-### Monitor dashboard
+### Monitoring
 
-In this project configuration, each microservice with Hystrix on board pushes metrics to Turbine via Spring Cloud Bus (with AMQP broker). The Monitoring project is just a small Spring boot application with the [Turbine](https://github.com/Netflix/Turbine) and [Hystrix Dashboard](https://github.com/Netflix-Skunkworks/hystrix-dashboard).
+> **Before → after:** the legacy project pushed **Hystrix** metrics to **Turbine**
+> (via Spring Cloud Bus / AMQP) and rendered them in the **Hystrix Dashboard**. Both
+> the `monitoring` and `turbine-stream-service` modules have been **deleted**.
+> Observability now uses **Actuator + Micrometer**: each service exposes metrics at
+> `/actuator/prometheus`, scraped by **Prometheus** and visualized in **Grafana**.
 
-Let's see observe the behavior of our system under load: Statistics Service imitates a delay during the request processing. The response timeout is set to 1 second:
-
-<img width="880" src="https://cloud.githubusercontent.com/assets/6069066/14194375/d9a2dd80-f7be-11e5-8bcc-9a2fce753cfe.png">
-
-<img width="212" src="https://cloud.githubusercontent.com/assets/6069066/14127349/21e90026-f628-11e5-83f1-60108cb33490.gif">	| <img width="212" src="https://cloud.githubusercontent.com/assets/6069066/14127348/21e6ed40-f628-11e5-9fa4-ed527bf35129.gif"> | <img width="212" src="https://cloud.githubusercontent.com/assets/6069066/14127346/21b9aaa6-f628-11e5-9bba-aaccab60fd69.gif"> | <img width="212" src="https://cloud.githubusercontent.com/assets/6069066/14127350/21eafe1c-f628-11e5-8ccd-a6b6873c046a.gif">
---- |--- |--- |--- |
-| `0 ms delay` | `500 ms delay` | `800 ms delay` | `1100 ms delay`
-| Well behaving system. Throughput is about 22 rps. Small number of active threads in the Statistics service. Median service time is about 50 ms. | The number of active threads is growing. We can see purple number of thread-pool rejections and therefore about 40% of errors, but the circuit is still closed. | Half-open state: the ratio of failed commands is higher than 50%, so the circuit breaker kicks in. After sleep window amount of time, the next request goes through. | 100 percent of the requests fail. The circuit is now permanently open. Retry after sleep time won't close the circuit again because a single request is too slow.
+Each service publishes JVM, HTTP and Resilience4j circuit-breaker metrics via Micrometer at `/actuator/prometheus`. Prometheus and Grafana are wired into the development compose file (`docker-compose.dev.yml`), including a prebuilt "PiggyMetrics — Resilience4j & JVM" Grafana dashboard. See [`docs/phase-4-smoke-checklist.md`](docs/phase-4-smoke-checklist.md) for the observability smoke steps.
 
 ### Log analysis
 
@@ -194,19 +245,22 @@ Centralized logging can be very useful while attempting to identify problems in 
 
 Analyzing problems in distributed systems can be difficult, especially trying to trace requests that propagate from one microservice to another.
 
-[Spring Cloud Sleuth](https://cloud.spring.io/spring-cloud-sleuth/) solves this problem by providing support for the distributed tracing. It adds two types of IDs to the logging: `traceId` and `spanId`. `spanId` represents a basic unit of work, for example sending an HTTP request. The traceId contains a set of spans forming a tree-like structure. For example, with a distributed big-data store, a trace might be formed by a PUT request. Using `traceId` and `spanId` for each operation we know when and where our application is as it processes a request, making reading logs much easier. 
+> **Before → after:** the legacy project used **Spring Cloud Sleuth**, which is
+> removed in Spring Boot 3. Tracing is now provided by **[Micrometer Tracing](https://docs.micrometer.io/tracing/reference/)**
+> (with an OpenTelemetry/Zipkin bridge).
 
-The logs are as follows, notice the `[appname,traceId,spanId,exportable]` entries from the Slf4J MDC:
+Micrometer Tracing adds two types of IDs to the logging: `traceId` and `spanId`. A `spanId` represents a basic unit of work, for example sending an HTTP request. The `traceId` contains a set of spans forming a tree-like structure. Using `traceId` and `spanId` for each operation, we know when and where our application is as it processes a request, making reading logs much easier.
+
+The logs are as follows — notice the `[appname,traceId,spanId]` entries from the Slf4J MDC:
 
 ```text
-2018-07-26 23:13:49.381  WARN [gateway,3216d0de1384bb4f,3216d0de1384bb4f,false] 2999 --- [nio-4000-exec-1] o.s.c.n.z.f.r.s.AbstractRibbonCommand    : The Hystrix timeout of 20000ms for the command account-service is set lower than the combination of the Ribbon read and connect timeout, 80000ms.
-2018-07-26 23:13:49.562  INFO [account-service,3216d0de1384bb4f,404ff09c5cf91d2e,false] 3079 --- [nio-6000-exec-1] c.p.account.service.AccountServiceImpl   : new account has been created: test
+2026-07-05 23:13:49.381  INFO [gateway,3216d0de1384bb4f,3216d0de1384bb4f] 2999 --- [ctor-http-nio-2] o.s.c.g.h.RoutePredicateHandlerMapping   : Route matched: account-service
+2026-07-05 23:13:49.562  INFO [account-service,3216d0de1384bb4f,404ff09c5cf91d2e] 3079 --- [nio-6000-exec-1] c.p.account.service.AccountServiceImpl   : new account has been created: test
 ```
 
 - *`appname`*: The name of the application that logged the span from the property `spring.application.name`
 - *`traceId`*: This is an ID that is assigned to a single request, job, or action
 - *`spanId`*: The ID of a specific operation that took place
-- *`exportable`*: Whether the log should be exported to [Zipkin](https://zipkin.io/)
 
 ## Infrastructure automation
 
@@ -220,39 +274,54 @@ Here is a simple Continuous Delivery workflow, implemented in this project:
 
 <img width="880" src="https://cloud.githubusercontent.com/assets/6069066/14159789/0dd7a7ce-f6e9-11e5-9fbb-a7fe0f4431e3.png">
 
-In this [configuration](.github/workflows/ci.yml), GitHub Actions builds and tests every microservice on JDK 21 on each push and pull request, publishing the JaCoCo coverage report as a workflow artifact. A second `build-docker-images` job then validates that every service and MongoDB image builds on the modern bases (`eclipse-temurin:21-jre` / `mongo:7`). Images are **not** pushed to a registry yet, so `docker-compose.yml` (production mode) still references the legacy published `sqshq/piggymetrics-*` images; the fully modernized runtime is built locally via the development-mode overlay (both compose files).
+In this [configuration](.github/workflows/ci.yml), **GitHub Actions** (replacing the legacy Travis CI) builds and tests every microservice on **JDK 21** on each push and pull request, running the Testcontainers-based integration tests and publishing the JaCoCo coverage report as a workflow artifact. The workflow defines a single test job, `build-java-21`; enforcing it as a required status check is a manual branch-protection step (see [`MODERNIZATION_PLAN.md`](MODERNIZATION_PLAN.md), §9). A second `build-docker-images` job validates that every service and MongoDB image builds on the modern bases (`eclipse-temurin:21-jre` / `mongo:7`). Images are **not** pushed to a registry yet, so `docker-compose.yml` (production mode) still references the legacy published `sqshq/piggymetrics-*` images; the fully modernized runtime is built locally via the development-mode overlay (both compose files).
 
 ## Let's try it out
 
-Note that starting 8 Spring Boot applications, 4 MongoDB instances and a RabbitMq requires at least 4Gb of RAM.
+> **Build prerequisite:** from the modernization onward the build requires **JDK 21**
+> (Spring Boot 3.3 needs 17+). The reactor is **7 modules**; the `monitoring` and
+> `turbine-stream-service` modules were removed.
+
+Note that starting the Spring Boot applications, the MongoDB instances and RabbitMQ require at least 4 GB of RAM.
 
 #### Before you start
 - Install Docker and Docker Compose.
-- Change environment variable values in `.env` file for more security or leave it as it is.
-- Build the project: `mvn package [-DskipTests]`
+- Change the environment variable values in the `.env` file for more security or leave them as they are.
+- Build the project: `mvn package [-DskipTests]` (with `JAVA_HOME` pointing at a JDK 21).
 
 #### Production mode
 In this mode, all images referenced by `docker-compose.yml` are pulled from Docker Hub. Note these are still the **legacy** `sqshq/piggymetrics-*` images (the modernized images are not yet published); use development mode below to run the fully modernized JDK 21 / MongoDB 7 stack.
 Just copy `docker-compose.yml` and hit `docker-compose up`
 
-#### Development mode
-If you'd like to build the modernized images yourself, clone the repository and build artifacts using maven. After that, run `docker-compose -f docker-compose.yml -f docker-compose.dev.yml up --build`
+#### Development mode (recommended)
+Clone the repository, build the artifacts with Maven, then run:
 
-`docker-compose.dev.yml` inherits `docker-compose.yml` with additional possibility to build images locally (JDK 21 services + the `mongo:7` image) and expose all containers ports for convenient development.
+```
+docker-compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+```
 
-If you'd like to start applications in Intellij Idea you need to either use [EnvFile plugin](https://plugins.jetbrains.com/plugin/7861-envfile) or manually export environment variables listed in `.env` file (make sure they were exported: `printenv`)
+`docker-compose.dev.yml` extends `docker-compose.yml` — it builds the modernized images locally from source (JDK 21 services including the rewritten gateway and auth-service, plus the `mongo:7` image), exposes all container ports for convenient development, and adds the Prometheus + Grafana observability stack.
+
+> **Note on production mode:** `docker-compose.yml` on its own still references the
+> upstream `sqshq/piggymetrics-*` images on Docker Hub as a behavioral oracle.
+> Publishing modernized images is Phase 6 (not yet shipped), so use the **development
+> mode** command above to run this fork's modernized code.
+
+To run the Testcontainers-based tests locally you need a running Docker daemon. On Docker Desktop 29+ (Apple Silicon), set `DOCKER_HOST=unix://$HOME/.docker/run/docker.sock` and run `mvn verify -Dapi.version=1.44`; GitHub-hosted CI needs neither.
+
+If you'd like to start the applications in IntelliJ IDEA you need to either use the [EnvFile plugin](https://plugins.jetbrains.com/plugin/7861-envfile) or manually export the environment variables listed in the `.env` file (verify they were exported: `printenv`).
 
 #### Important endpoints
-- http://localhost:80 - Gateway (Spring Cloud Gateway; replaces Netflix Zuul as of the Phase 4 modernization)
-- http://localhost:8761 - Eureka Dashboard
-- http://localhost:9090 - Prometheus (dev compose; replaces the removed Hystrix Dashboard/Turbine)
-- http://localhost:3000 - Grafana (dev compose; default login/password: admin/admin)
-- http://localhost:15672 - RabbitMq management (default login/password: guest/guest)
+- http://localhost:80 — Gateway (**Spring Cloud Gateway**; replaces Netflix Zuul)
+- http://localhost:8761 — Eureka Dashboard
+- http://localhost:9090 — Prometheus (dev compose; replaces the removed Hystrix Dashboard/Turbine)
+- http://localhost:3000 — Grafana (dev compose; default login/password: admin/admin)
+- http://localhost:15672 — RabbitMQ management (default login/password: guest/guest)
 
 > **Modernization note:** the Hystrix Dashboard + Turbine monitoring stack has been
 > removed. Circuit-breaker and JVM metrics are now exposed via Micrometer at each
 > service's `/actuator/prometheus`, scraped by Prometheus and visualized in Grafana.
-> See `docs/phase-4-smoke-checklist.md`.
+> See [`docs/phase-4-smoke-checklist.md`](docs/phase-4-smoke-checklist.md).
 
 ## Contributions are welcome!
 
