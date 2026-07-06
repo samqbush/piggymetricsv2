@@ -243,10 +243,16 @@ If you'd like to build images yourself, you have to clone the repository and bui
 If you'd like to start applications in Intellij Idea you need to either use [EnvFile plugin](https://plugins.jetbrains.com/plugin/7861-envfile) or manually export environment variables listed in `.env` file (make sure they were exported: `printenv`)
 
 #### Important endpoints
-- http://localhost:80 - Gateway
+- http://localhost:80 - Gateway (Spring Cloud Gateway; replaces Netflix Zuul as of the Phase 4 modernization)
 - http://localhost:8761 - Eureka Dashboard
-- http://localhost:9000/hystrix - Hystrix Dashboard (Turbine stream link: `http://turbine-stream-service:8080/turbine/turbine.stream`)
+- http://localhost:9090 - Prometheus (dev compose; replaces the removed Hystrix Dashboard/Turbine)
+- http://localhost:3000 - Grafana (dev compose; default login/password: admin/admin)
 - http://localhost:15672 - RabbitMq management (default login/password: guest/guest)
+
+> **Modernization note:** the Hystrix Dashboard + Turbine monitoring stack has been
+> removed. Circuit-breaker and JVM metrics are now exposed via Micrometer at each
+> service's `/actuator/prometheus`, scraped by Prometheus and visualized in Grafana.
+> See `docs/phase-4-smoke-checklist.md`.
 
 ## Contributions are welcome!
 

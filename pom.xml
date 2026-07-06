@@ -55,18 +55,13 @@
 		<module>account-service</module>
 		<module>statistics-service</module>
 		<module>notification-service</module>
-		<!--
-		  Phase 3 quarantine: these modules depend on Netflix/OAuth2 artifacts that
-		  were removed in Spring Cloud 2023.x / Spring Security 6 and cannot compile
-		  on the new platform. They are excluded from the JDK 21 reactor and stay on
-		  the legacy code until their owning phase:
-		    - gateway                -> Netflix Zuul removed; rewritten on Spring Cloud Gateway in Phase 4
-		    - monitoring             -> Hystrix Dashboard removed; deleted in Phase 4
-		    - turbine-stream-service -> Turbine Stream removed; deleted in Phase 4
-		    - auth-service           -> spring-security-oauth2 authorization server removed; rewritten in Phase 5
 		<module>gateway</module>
-		<module>monitoring</module>
-		<module>turbine-stream-service</module>
+		<!--
+		  Quarantine: auth-service depends on spring-security-oauth2 authorization
+		  server artifacts that were removed in Spring Security 6 and cannot compile
+		  on the new platform. It is excluded from the JDK 21 reactor and stays on
+		  the legacy code until it is rewritten in Phase 5.
+		    - auth-service -> spring-security-oauth2 authorization server removed; rewritten in Phase 5
 		<module>auth-service</module>
 		-->
 	</modules>

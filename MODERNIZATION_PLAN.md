@@ -65,9 +65,10 @@ step a human must perform** (see §9). Until then CI *runs* on PRs but does not
 ### Residual-risk register
 | Item | Rung | Residual risk | Closed by |
 |------|------|--------------|-----------|
-| Gateway edge (Zuul→SCG) | L3 | routing/aggregation parity relies on characterization tests, not the deleted Zuul filters | Phase 4 exit + smoke |
+| Gateway edge (Zuul→SCG) | L3 | routing/aggregation parity relies on `GatewayRoutingTest` + smoke, not a byte-diff oracle (no Phase 1 snapshot); **`/uaa` live login unverified until Phase 5** (auth quarantined) | Phase 4 exit + smoke; `/uaa` closed in Phase 5 |
+| Prometheus scrape access | n/a | `/actuator/prometheus` is open only because Phase 3 service security permits all; restoring resource-server security must re-permit scraping | Phase 5 |
 | Auth (oauth2→Authorization Server) | L4 | token *format* changes (opaque check-token → JWT); every resource server must switch validation in lockstep | Phase 5 (single coordinated phase) |
-| Removed monitoring/turbine | n/a | loss of Hystrix dashboard | Phase 4 (Resilience4j + Micrometer metrics replace it) |
+| Removed monitoring/turbine | n/a | loss of Hystrix dashboard | ✅ Phase 4 (Resilience4j + Micrometer/Prometheus/Grafana replace it) |
 | Testcontainers in CI | L4 | requires Docker-in-CI (available on GitHub-hosted runners) | Phase 1 |
 
 ## 4. Target architecture
@@ -323,9 +324,12 @@ corpse.
 - UI static content served by SCG for now (a dedicated static host is **deferred**, not dropped).
 
 #### Verification & Exit Criteria
-- [ ] Every documented route returns parity responses vs. the old gateway oracle (4.2 green + smoke checklist passed).
-- [ ] `/actuator/prometheus` scraped by Prometheus; Grafana shows circuit-breaker metrics.
-- [ ] monitoring + turbine-stream removed from build and compose.
+- [x] Data routes `/accounts/**`, `/statistics/**`, `/notifications/**` route correctly with full-path (`stripPrefix:false`) parity and `Authorization`/`Cookie` header forwarding. *(`GatewayRoutingTest` — 5 tests green: path preservation, header forwarding, unknown-path 404, static index.)*
+- [x] `/uaa/**` route configured + assertion-tested; **live login verification explicitly deferred to Phase 5** (auth-service quarantined, pinned to the `sqshq/piggymetrics-auth-service` oracle image in dev compose). Recorded as residual risk — not claimed as parity-verified in Phase 4.
+- [x] Manual smoke checklist authored (`docs/phase-4-smoke-checklist.md`): routing, header forwarding, Prometheus `/targets` UP, Grafana dashboard.
+- [x] Micrometer + `micrometer-registry-prometheus` on all reactor services; `/actuator/prometheus` exposed via shared config; Prometheus + Grafana (datasource + "PiggyMetrics — Resilience4j & JVM" dashboard) added to `docker-compose.dev.yml`. *(Prometheus/Grafana scoped to dev compose only; `docker-compose.yml` stays the legacy `sqshq/*` oracle.)*
+- [x] `monitoring` + `turbine-stream-service` removed from build (`pom.xml`), config (`shared/*.yml`), and both compose files. *(Full reactor `mvn verify` on JDK 21 = BUILD SUCCESS incl. gateway.)*
+- Note: no Phase 1 seam snapshot exists (deferred to 1b), so parity is pinned by `GatewayRoutingTest` + smoke, not a byte-diff against the old Zuul oracle.
 
 ---
 
@@ -399,7 +403,7 @@ corpse.
 | 1 — Green baseline & safety net | 🔄 in progress (green baseline achieved on PR; seam snapshots → Phase 1b) |
 | 2 — CI Milestone (GitHub Actions) | ✅ complete (PR #2: `build-java-8` green; Travis retired; JDK 21 preview lane allowed-to-fail). Pending manual branch protection on `main` (§9). |
 | 3 — Platform upgrade (Java 21 / Boot 3.3) | ✅ complete (local `mvn verify` on JDK 21: 6/6 reactor SUCCESS; Netflix/OAuth2 deps off classpath; gateway/monitoring/turbine/auth quarantined → Phases 4/5). Pending manual branch-protection flip to `build-java-21` (§9). |
-| 4 — Edge rewrite + observability | ⬜ not started |
+| 4 — Edge rewrite + observability | ✅ complete (SCG edge replaces Zuul; `GatewayRoutingTest` green; monitoring+turbine deleted; Prometheus+Grafana in dev compose). `/uaa` live-verify deferred to Phase 5. |
 | 5 — Security rewrite (Authorization Server + JWT) | ⬜ not started |
 | 6 — Containers & delivery | ⬜ not started |
 

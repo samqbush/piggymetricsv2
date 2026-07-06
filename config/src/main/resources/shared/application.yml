@@ -2,6 +2,15 @@ logging:
   level:
     org.springframework.security: INFO
 
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  metrics:
+    tags:
+      application: ${spring.application.name}
+
 # Resilience4j (via Spring Cloud CircuitBreaker) replaces Netflix Hystrix.
 # Enabling this makes OpenFeign route calls through the circuit breaker so the
 # existing @FeignClient(fallback=...) classes are invoked on failure.

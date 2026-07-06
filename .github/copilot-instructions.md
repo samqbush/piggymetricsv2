@@ -40,8 +40,9 @@ phase at a time; do not advance until the current phase's exit criteria are met.
 | Single test by name | `mvn -pl <module> test -Dtest=ClassName#method` |
 | Coverage report | JaCoCo `report` bound to `test` phase → `target/site/jacoco` |
 | Lint / format / typecheck | *none configured* (gap; do not invent one) |
-| End-to-end / smoke | `docker-compose up` + curl the gateway routes (README endpoint table) |
-| Contract / characterization | seam snapshots captured in Phase 1 vs. running `sqshq/piggymetrics-*` oracle |
+| End-to-end / smoke | `docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build` + follow `docs/phase-4-smoke-checklist.md` |
+| Observability (Phase 4) | Prometheus http://localhost:9090/targets · Grafana http://localhost:3000 (admin/admin), dev compose only |
+| Contract / characterization | `GatewayRoutingTest` (routing/header parity) + smoke checklist; no Phase 1 byte-diff oracle (deferred to 1b) |
 
 CI (`.github/workflows/ci.yml`) runs `mvn -B verify` (with Testcontainers +
 JaCoCo) on every push and PR — **on JDK 21 from Phase 3** (the single
