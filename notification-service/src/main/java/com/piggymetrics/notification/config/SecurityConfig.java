@@ -2,17 +2,14 @@ package com.piggymetrics.notification.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 
 /**
- * TODO(Phase 5): temporary permit-all shim.
- *
- * <p>The original OAuth2 resource-server security ({@code @EnableResourceServer},
- * {@code OAuth2FeignRequestInterceptor}) was built on {@code spring-security-oauth2},
- * removed in Spring Security 6. Phase 3 is a platform lift only; real JWT
- * resource-server security is rewritten in Phase 5. Until then every request is
- * permitted so the service compiles and its non-security tests pass.
+ * JWT resource-server security (Phase 5). All recipient endpoints act on the
+ * authenticated end user's own notification settings.
  */
 @Configuration
 public class SecurityConfig {
@@ -20,10 +17,15 @@ public class SecurityConfig {
 	@Bean
 	public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
 		http
+				.sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 				.csrf(csrf -> csrf.disable())
 				.formLogin(form -> form.disable())
 				.httpBasic(basic -> basic.disable())
-				.authorizeHttpRequests(auth -> auth.anyRequest().permitAll());
+				.authorizeHttpRequests(auth -> auth
+						.requestMatchers("/actuator/health/**", "/actuator/info", "/actuator/prometheus").permitAll()
+						.requestMatchers("/recipients/**").authenticated()
+						.anyRequest().authenticated())
+				.oauth2ResourceServer(oauth2 -> oauth2.jwt(Customizer.withDefaults()));
 		return http.build();
 	}
 }
