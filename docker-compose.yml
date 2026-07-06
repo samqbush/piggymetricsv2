@@ -76,6 +76,9 @@ services:
   auth-mongodb:
     environment:
       MONGODB_PASSWORD: $MONGODB_PASSWORD
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: $MONGODB_PASSWORD
+      MONGO_INITDB_DATABASE: piggymetrics
     image: sqshq/piggymetrics-mongodb
     restart: always
     logging:
@@ -102,6 +105,9 @@ services:
     environment:
       INIT_DUMP: account-service-dump.js
       MONGODB_PASSWORD: $MONGODB_PASSWORD
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: $MONGODB_PASSWORD
+      MONGO_INITDB_DATABASE: piggymetrics
     image: sqshq/piggymetrics-mongodb
     restart: always
     logging:
@@ -127,6 +133,9 @@ services:
   statistics-mongodb:
     environment:
       MONGODB_PASSWORD: $MONGODB_PASSWORD
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: $MONGODB_PASSWORD
+      MONGO_INITDB_DATABASE: piggymetrics
     image: sqshq/piggymetrics-mongodb
     restart: always
     logging:
@@ -154,6 +163,9 @@ services:
     restart: always
     environment:
       MONGODB_PASSWORD: $MONGODB_PASSWORD
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: $MONGODB_PASSWORD
+      MONGO_INITDB_DATABASE: piggymetrics
     logging:
       options:
         max-size: "10m"
