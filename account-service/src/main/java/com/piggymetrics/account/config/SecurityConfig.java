@@ -34,6 +34,7 @@ public class SecurityConfig {
 				.authorizeHttpRequests(auth -> auth
 						.requestMatchers("/actuator/health/**", "/actuator/info", "/actuator/prometheus").permitAll()
 						.requestMatchers(HttpMethod.POST, "/").permitAll()
+						.requestMatchers(HttpMethod.GET, "/demo").permitAll()
 						.requestMatchers("/current").authenticated()
 						.requestMatchers(HttpMethod.GET, "/{name}").hasAuthority("SCOPE_server")
 						.anyRequest().authenticated())

@@ -6,44 +6,35 @@ var global = {
 };
 
 /**
- * Oauth2
+ * Oauth2 (Phase 5 BFF)
+ *
+ * Authentication is handled by the gateway (Backend-for-Frontend): the browser
+ * holds only an HttpOnly session cookie and never sees the access token. Login is
+ * a full-page redirect to the gateway's authorization_code flow; the gateway relays
+ * the JWT downstream. No token is stored in localStorage anymore.
  */
 
-function requestOauthToken(username, password) {
+function startLogin() {
+	window.location = 'oauth2/authorization/piggymetrics';
+}
 
-	var success = false;
+function getCookie(name) {
+	var match = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
+	return match ? match.pop() : '';
+}
 
-	$.ajax({
-		url: 'uaa/oauth/token',
-		datatype: 'json',
-		type: 'post',
-		headers: {'Authorization': 'Basic YnJvd3Nlcjo='},
-		async: false,
-		data: {
-			scope: 'ui',
-			username: username,
-			password: password,
-			grant_type: 'password'
-		},
-		success: function (data) {
-			localStorage.setItem('token', data.access_token);
-			success = true;
-		},
-		error: function () {
-			removeOauthTokenFromStorage();
+// Double-submit CSRF: echo the non-HttpOnly XSRF-TOKEN cookie set by the gateway
+// back as the X-XSRF-TOKEN header on every state-changing request.
+$.ajaxSetup({
+	beforeSend: function (xhr, settings) {
+		if (!/^(GET|HEAD|OPTIONS|TRACE)$/i.test(settings.type)) {
+			var csrf = getCookie('XSRF-TOKEN');
+			if (csrf) {
+				xhr.setRequestHeader('X-XSRF-TOKEN', csrf);
+			}
 		}
-	});
-
-	return success;
-}
-
-function getOauthTokenFromStorage() {
-	return localStorage.getItem('token');
-}
-
-function removeOauthTokenFromStorage() {
-    return localStorage.removeItem('token');
-}
+	}
+});
 
 /**
  * Current account
@@ -51,24 +42,21 @@ function removeOauthTokenFromStorage() {
 
 function getCurrentAccount() {
 
-	var token = getOauthTokenFromStorage();
 	var account = null;
 
-	if (token) {
-		$.ajax({
-			url: 'accounts/current',
-			datatype: 'json',
-			type: 'get',
-			headers: {'Authorization': 'Bearer ' + token},
-			async: false,
-			success: function (data) {
+	$.ajax({
+		url: 'accounts/current',
+		dataType: 'json',
+		type: 'get',
+		async: false,
+		success: function (data) {
+			// A followed login redirect returns HTML (a string); only a JSON object
+			// is a real, authenticated account.
+			if (data && typeof data === 'object') {
 				account = data;
-			},
-			error: function () {
-				removeOauthTokenFromStorage();
 			}
-		});
-	}
+		}
+	});
 
 	return account;
 }
