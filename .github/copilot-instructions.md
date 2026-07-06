@@ -93,10 +93,14 @@ assuming it passed.
 ## Branching & PRs
 
 Each phase is developed on its **own branch** (`phase-N-<short-name>`) — never
-commit phase work directly to `master`. Open a PR to `master` once the phase's
-exit criteria are met and recorded. For **lit** phases, green CI on the PR is the
-authoritative signal before merge. For the **Phase 4** edge slice, the PR carries
-routing-parity evidence + smoke results with residual risk named.
+commit phase work directly to the trunk. The trunk is **`main`** (the legacy
+`master` branch is retained for historical purposes only — do **not** target it).
+Open a PR to `main` once the phase's exit criteria are met and recorded. **Every
+phase PR must target the trunk (`main`) directly — never base a phase branch or
+its PR on a sibling `phase-N` branch (no stacked PRs).** For **lit** phases, green
+CI on the PR is the authoritative signal before merge. For the **Phase 4** edge
+slice, the PR carries routing-parity evidence + smoke results with residual risk
+named.
 
 > **CI enforcement is a manual, human-only step.** An agent can author and run the
 > workflow, but making it a **required status check / branch-protection rule** so
