@@ -372,13 +372,46 @@ corpse.
 #### Tasks
 | ID | Task | Component | Blocked by |
 |----|------|-----------|------------|
-| 6.1 | Base image `java:8-jre` → `eclipse-temurin:21-jre` (or Buildpacks/Jib) | all Dockerfiles | — |
-| 6.2 | `mongo:3` → `mongo:7`; verify data compatibility/dump migration | mongodb | — |
-| 6.3 | Add image build + (optional) push to the GitHub Actions pipeline | CI | — |
+| 6.1 | Base image `java:8-jre` → `eclipse-temurin:21-jre` | all Dockerfiles | — |
+| 6.2 | `mongo:3` → `mongo:7`; rework init to the mongo:7 native pattern | mongodb | — |
+| 6.3 | Add build-only image job to the GitHub Actions pipeline | CI | — |
+
+**Decisions made:**
+- **6.1 was already satisfied** by Phases 3/5 — all 7 Java service Dockerfiles were
+  bumped to `eclipse-temurin:21-jre` when the platform/security rewrites landed.
+  Phase 6 only had to modernize the `mongodb` image. **Hand-written Dockerfiles are
+  kept** (no Buildpacks/Jib) — resolves §9.5.
+- **6.2:** the legacy `mongodb/init.sh` (legacy `mongo` shell + `killall`/restart
+  auth dance, removed in MongoDB 6.0+) is **replaced by the mongo:7 native init**:
+  `MONGO_INITDB_ROOT_*` in compose + JS scripts in `/docker-entrypoint-initdb.d/`
+  (`01-create-app-user.js` creates the non-root `user` on `piggymetrics`;
+  `02-account-demo-seed.js` seeds the demo account, gated by the existing
+  `INIT_DUMP` env so only `account-mongodb` seeds). No on-disk 3→7 data migration
+  is needed — mongo data is re-seeded from the init scripts each run; the pre-upgrade
+  dump is retained in git history and the still-published `mongo:3` oracle image
+  (rollback = redeploy the previous image). Smoke requires `down -v` first
+  (mongo:3 volumes are not forward-compatible with mongo:7).
+- **6.3:** CI gains a **build-only** `build-docker-images` job (no registry push):
+  `mvn -DskipTests package` then `docker build` each module dir + `mongodb`. It
+  validates Dockerfiles/build-contexts/bases/jars; MongoDB runtime init/auth is
+  covered by the local compose smoke test, not CI.
 
 #### Verification & Exit Criteria
-- [ ] `docker-compose up` brings the full modernized system healthy; smoke checklist passes end-to-end through the gateway.
-- [ ] CI builds images on JDK 21 base.
+- [x] `docker-compose up` (both files, `down -v` first) brings the full modernized
+      system healthy; smoke checklist passes end-to-end through the gateway — all 5
+      services registered in Eureka; gateway serves the static UI (200) and routes
+      `/accounts`, `/statistics`, `/notifications`, `/uaa` (anonymous → login
+      redirect = Phase 5 BFF behavior); the seeded demo account is served
+      end-to-end through gateway → account-service → **mongo:7** (account-service
+      authenticates as `user` on `piggymetrics` via SCRAM-SHA-256); Prometheus
+      scrapes all targets UP. Interactive browser login remains a manual check.
+- [x] CI builds all 8 images on the JDK 21 / mongo:7 bases (build-only job;
+      verified locally — all images build cleanly).
+- [x] No stale base images remain (all Dockerfiles: `eclipse-temurin:21-jre` /
+      `mongo:7.0`).
+
+> **Out of scope / noted:** `rabbitmq:3-management` still floats on its `3` tag
+> (unchanged this phase); pin it if reproducibility of the broker matters.
 
 ---
 
@@ -406,7 +439,7 @@ corpse.
 | 3 — Platform upgrade (Java 21 / Boot 3.3) | ✅ complete (local `mvn verify` on JDK 21: 6/6 reactor SUCCESS; Netflix/OAuth2 deps off classpath; gateway/monitoring/turbine/auth quarantined → Phases 4/5). Pending manual branch-protection flip to `build-java-21` (§9). |
 | 4 — Edge rewrite + observability | ✅ complete (SCG edge replaces Zuul; `GatewayRoutingTest` green; monitoring+turbine deleted; Prometheus+Grafana in dev compose). `/uaa` live-verify deferred to Phase 5. |
 | 5 — Security rewrite (Authorization Server + JWT) | ✅ complete (auth-service rewritten on Spring Authorization Server issuing RSA JWTs; account/statistics/notification are JWT resource servers with scope-separated authz; service-to-service via `client_credentials`; gateway BFF with authorization_code+PKCE+TokenRelay; contract/security tests + full `mvn verify` 7/7 SUCCESS on JDK 21; auth-service un-quarantined in compose). Interactive browser-login smoke = manual. |
-| 6 — Containers & delivery | ⬜ not started |
+| 6 — Containers & delivery | ✅ complete (mongodb image `mongo:3`→`mongo:7` reworked to the native `/docker-entrypoint-initdb.d/` init; all 7 Java Dockerfiles already on `eclipse-temurin:21-jre`; CI gains a build-only `build-docker-images` job; full `down -v` + `up --build` smoke passes — demo account served end-to-end through gateway → account-service → mongo:7, Prometheus targets UP). Interactive browser login = manual. |
 
 Markers: ⬜ not started · 🔄 in progress · ✅ complete · ⏭️ descoped · 🗑️ dropped
 
@@ -445,5 +478,7 @@ Markers: ⬜ not started · 🔄 in progress · ✅ complete · ⏭️ descoped 
 4. **[DECISION NEEDED] Is RabbitMQ still wanted** once Hystrix streaming is gone?
    It would remain only for Spring Cloud Bus config refresh — keep, or drop Bus
    and use Actuator `/refresh`?
-5. **[DECISION NEEDED] Docker image strategy:** hand-written Dockerfiles vs.
-   Spring Boot Buildpacks/Jib (Phase 6).
+5. **[RESOLVED — Phase 6] Docker image strategy:** hand-written Dockerfiles were
+   kept (no Buildpacks/Jib). All service images build on `eclipse-temurin:21-jre`
+   and the mongodb image on `mongo:7`; CI validates image builds (build-only, no
+   push).

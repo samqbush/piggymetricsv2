@@ -274,7 +274,7 @@ Here is a simple Continuous Delivery workflow, implemented in this project:
 
 <img width="880" src="https://cloud.githubusercontent.com/assets/6069066/14159789/0dd7a7ce-f6e9-11e5-9fbb-a7fe0f4431e3.png">
 
-In this [configuration](.github/workflows/ci.yml), **GitHub Actions** (replacing the legacy Travis CI) builds and tests every microservice on **JDK 21** on each push and pull request, running the Testcontainers-based integration tests and publishing the JaCoCo coverage report as a workflow artifact. The workflow defines a single job, `build-java-21`; enforcing it as a required status check is a manual branch-protection step (see [`MODERNIZATION_PLAN.md`](MODERNIZATION_PLAN.md), §9). Automated Docker image builds/pushes are planned as part of the modernization effort (see [`MODERNIZATION_PLAN.md`](MODERNIZATION_PLAN.md), Phase 6 — not yet shipped).
+In this [configuration](.github/workflows/ci.yml), **GitHub Actions** (replacing the legacy Travis CI) builds and tests every microservice on **JDK 21** on each push and pull request, running the Testcontainers-based integration tests and publishing the JaCoCo coverage report as a workflow artifact. The workflow defines a single test job, `build-java-21`; enforcing it as a required status check is a manual branch-protection step (see [`MODERNIZATION_PLAN.md`](MODERNIZATION_PLAN.md), §9). A second `build-docker-images` job validates that every service and MongoDB image builds on the modern bases (`eclipse-temurin:21-jre` / `mongo:7`). Images are **not** pushed to a registry yet, so `docker-compose.yml` (production mode) still references the legacy published `sqshq/piggymetrics-*` images; the fully modernized runtime is built locally via the development-mode overlay (both compose files).
 
 ## Let's try it out
 
@@ -289,6 +289,10 @@ Note that starting the Spring Boot applications, the MongoDB instances and Rabbi
 - Change the environment variable values in the `.env` file for more security or leave them as they are.
 - Build the project: `mvn package [-DskipTests]` (with `JAVA_HOME` pointing at a JDK 21).
 
+#### Production mode
+In this mode, all images referenced by `docker-compose.yml` are pulled from Docker Hub. Note these are still the **legacy** `sqshq/piggymetrics-*` images (the modernized images are not yet published); use development mode below to run the fully modernized JDK 21 / MongoDB 7 stack.
+Just copy `docker-compose.yml` and hit `docker-compose up`
+
 #### Development mode (recommended)
 Clone the repository, build the artifacts with Maven, then run:
 
@@ -296,7 +300,7 @@ Clone the repository, build the artifacts with Maven, then run:
 docker-compose -f docker-compose.yml -f docker-compose.dev.yml up --build
 ```
 
-`docker-compose.dev.yml` extends `docker-compose.yml` — it builds the modernized images locally from source (including the rewritten gateway and auth-service), exposes all container ports for convenient development, and adds the Prometheus + Grafana observability stack.
+`docker-compose.dev.yml` extends `docker-compose.yml` — it builds the modernized images locally from source (JDK 21 services including the rewritten gateway and auth-service, plus the `mongo:7` image), exposes all container ports for convenient development, and adds the Prometheus + Grafana observability stack.
 
 > **Note on production mode:** `docker-compose.yml` on its own still references the
 > upstream `sqshq/piggymetrics-*` images on Docker Hub as a behavioral oracle.
