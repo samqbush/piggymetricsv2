@@ -56,14 +56,7 @@
 		<module>statistics-service</module>
 		<module>notification-service</module>
 		<module>gateway</module>
-		<!--
-		  Quarantine: auth-service depends on spring-security-oauth2 authorization
-		  server artifacts that were removed in Spring Security 6 and cannot compile
-		  on the new platform. It is excluded from the JDK 21 reactor and stays on
-		  the legacy code until it is rewritten in Phase 5.
-		    - auth-service -> spring-security-oauth2 authorization server removed; rewritten in Phase 5
 		<module>auth-service</module>
-		-->
 	</modules>
 
 </project>
