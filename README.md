@@ -274,7 +274,7 @@ Here is a simple Continuous Delivery workflow, implemented in this project:
 
 <img width="880" src="https://cloud.githubusercontent.com/assets/6069066/14159789/0dd7a7ce-f6e9-11e5-9fbb-a7fe0f4431e3.png">
 
-In this [configuration](.github/workflows/ci.yml), **GitHub Actions** (replacing the legacy Travis CI) builds and tests every microservice on **JDK 21** on each push and pull request, running the Testcontainers-based integration tests and publishing the JaCoCo coverage report as a workflow artifact. The single required check is `build-java-21`. Automated Docker image builds/pushes are planned as part of the modernization effort (see [`MODERNIZATION_PLAN.md`](MODERNIZATION_PLAN.md), Phase 6 — not yet shipped).
+In this [configuration](.github/workflows/ci.yml), **GitHub Actions** (replacing the legacy Travis CI) builds and tests every microservice on **JDK 21** on each push and pull request, running the Testcontainers-based integration tests and publishing the JaCoCo coverage report as a workflow artifact. The workflow defines a single job, `build-java-21`; enforcing it as a required status check is a manual branch-protection step (see [`MODERNIZATION_PLAN.md`](MODERNIZATION_PLAN.md), §9). Automated Docker image builds/pushes are planned as part of the modernization effort (see [`MODERNIZATION_PLAN.md`](MODERNIZATION_PLAN.md), Phase 6 — not yet shipped).
 
 ## Let's try it out
 
@@ -282,7 +282,7 @@ In this [configuration](.github/workflows/ci.yml), **GitHub Actions** (replacing
 > (Spring Boot 3.3 needs 17+). The reactor is **7 modules**; the `monitoring` and
 > `turbine-stream-service` modules were removed.
 
-Note that starting the Spring Boot applications, the MongoDB instances and RabbitMQ requires at least 4Gb of RAM.
+Note that starting the Spring Boot applications, the MongoDB instances and RabbitMQ require at least 4 GB of RAM.
 
 #### Before you start
 - Install Docker and Docker Compose.
