@@ -16,10 +16,9 @@ services:
     build: gateway
 
   auth-service:
-    # auth-service is quarantined (won't compile on the new stack) until the
-    # Phase 5 security rewrite. Use the published legacy oracle image so the
-    # gateway's /uaa route resolves for smoke testing; verified in Phase 5.
-    image: sqshq/piggymetrics-auth-service
+    # Phase 5: auth-service is rebuilt from the modernized module (Spring
+    # Authorization Server + JWT). The legacy sqshq oracle image is retired.
+    build: auth-service
     ports:
       - 5000:5000
 

@@ -23,11 +23,11 @@ phase at a time; do not advance until the current phase's exit criteria are met.
 > Maven multi-module, **no wrapper committed**. From **Phase 3 onward the build
 > requires JDK 21** (Spring Boot 3.3 needs 17+). Set `JAVA_HOME` to a JDK 21 before
 > building (e.g. `export JAVA_HOME=~/.sdkman/candidates/java/21.0.2-open`). The
-> in-scope reactor is 6 modules (config, registry, account/statistics/notification-service,
-> and — since Phase 4 — gateway on Spring Cloud Gateway); monitoring and
-> turbine-stream-service were removed in Phase 4. Only **auth-service remains
-> quarantined** (excluded from the root `<modules>`) on the legacy Boot 2 / Netflix
-> stack until Phase 5. To run the Testcontainers tests locally on Docker Desktop 29+
+> in-scope reactor is **7 modules** (config, registry, account/statistics/notification-service,
+> gateway on Spring Cloud Gateway, and — since Phase 5 — auth-service on Spring
+> Authorization Server); monitoring and turbine-stream-service were removed in Phase 4.
+> **No modules remain quarantined:** auth-service was rewritten and re-enabled in the
+> root `<modules>` in Phase 5 (Boot 3.3 / JDK 21, JWT). To run the Testcontainers tests locally on Docker Desktop 29+
 > (Apple Silicon): `export DOCKER_HOST=unix://$HOME/.docker/run/docker.sock` and
 > `mvn verify -Dapi.version=1.44`; GitHub-hosted CI needs neither.
 

@@ -29,9 +29,9 @@ jobs:
           cache: maven
 
       # GitHub-hosted Ubuntu runners ship with Docker, which Testcontainers needs.
-      # The reactor (root pom) builds config, registry, the three data services,
-      # and the Spring Cloud Gateway edge. Only auth-service remains quarantined
-      # (legacy spring-security-oauth2) until the Phase 5 security rewrite.
+      # The reactor (root pom) builds all 7 modules: config, registry, the three
+      # data services, the Spring Cloud Gateway edge, and — since the Phase 5
+      # security rewrite — auth-service on Spring Authorization Server.
       - name: Build and test
         run: mvn -B verify
 

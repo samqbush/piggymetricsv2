@@ -38,6 +38,9 @@ services:
   gateway:
     environment:
       CONFIG_SERVICE_PASSWORD: $CONFIG_SERVICE_PASSWORD
+      BROWSER_CLIENT_SECRET: ${BROWSER_CLIENT_SECRET:-browser-secret}
+      GATEWAY_URL: ${GATEWAY_URL:-http://localhost}
+      AUTH_AUTHORIZATION_URI: ${AUTH_AUTHORIZATION_URI:-http://localhost/uaa/oauth2/authorize}
     image: sqshq/piggymetrics-gateway
     restart: always
     depends_on:
@@ -57,6 +60,9 @@ services:
       STATISTICS_SERVICE_PASSWORD: $STATISTICS_SERVICE_PASSWORD
       ACCOUNT_SERVICE_PASSWORD: $ACCOUNT_SERVICE_PASSWORD
       MONGODB_PASSWORD: $MONGODB_PASSWORD
+      BROWSER_CLIENT_SECRET: ${BROWSER_CLIENT_SECRET:-browser-secret}
+      GATEWAY_URL: ${GATEWAY_URL:-http://localhost}
+      AUTH_ISSUER_URI: ${AUTH_ISSUER_URI:-http://auth-service:5000/uaa}
     image: sqshq/piggymetrics-auth-service
     restart: always
     depends_on:
